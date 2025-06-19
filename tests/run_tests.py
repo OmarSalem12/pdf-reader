@@ -9,21 +9,22 @@ a summary of results.
 import sys
 import unittest
 from pathlib import Path
-from tests.test_refactored_package import TestPDFReaderPackage
-from tests.test_with_mock_pdfs import TestWithMockPDFs
+from test_refactored_package import TestPDFReaderPackage
+from test_with_mock_pdfs import TestWithMockPDFs
 
 # Add the parent directory to the path so we can import the package
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-def run_tests():
+def run_tests() -> unittest.TestResult:
     """Run all tests and return results."""
     # Create test suite
     test_suite = unittest.TestSuite()
 
     # Add test cases
-    test_suite.addTest(unittest.makeSuite(TestPDFReaderPackage))
-    test_suite.addTest(unittest.makeSuite(TestWithMockPDFs))
+    loader = unittest.TestLoader()
+    test_suite.addTest(loader.loadTestsFromTestCase(TestPDFReaderPackage))
+    test_suite.addTest(loader.loadTestsFromTestCase(TestWithMockPDFs))
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

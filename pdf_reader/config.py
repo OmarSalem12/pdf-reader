@@ -64,9 +64,7 @@ class Config:
         # Override with environment variables
         self._load_from_environment()
 
-        logger.info(
-            "Configuration initialized with %d settings", len(self.settings)
-        )
+        logger.info("Configuration initialized with %d settings", len(self.settings))
 
     def _get_default_settings(self) -> Dict[str, Any]:
         """
@@ -161,7 +159,7 @@ class Config:
                 raise ValueError("Config file must contain a JSON object")
 
             self.settings.update(file_settings)
-            self.config_file = config_path
+            self.config_file = config_path  # type: ignore
             logger.info("Configuration loaded from file: %s", config_path)
 
         except json.JSONDecodeError as e:
@@ -230,9 +228,7 @@ class Config:
         self.settings.update(settings)
         logger.info("Updated %d configuration settings", len(settings))
 
-    def save_config_file(
-        self, config_file: Optional[Union[str, Path]] = None
-    ) -> None:
+    def save_config_file(self, config_file: Optional[Union[str, Path]] = None) -> None:
         """
         Save current configuration to a file.
 
@@ -243,9 +239,10 @@ class Config:
         if config_file is None:
             if self.config_file is None:
                 raise ConfigurationError("No config file path specified")
+        else:
             config_file = self.config_file
 
-        config_path = Path(config_file)
+        config_path = Path(config_file)  # type: ignore
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -289,9 +286,7 @@ class Config:
         # Validate output directory
         output_dir = self.settings.get("output_directory")
         if output_dir and not Path(output_dir).parent.exists():
-            logger.warning(
-                "Output directory parent does not exist: %s", output_dir
-            )
+            logger.warning("Output directory parent does not exist: %s", output_dir)
 
         # Validate log level
         log_level = self.settings.get("log_level")
@@ -312,10 +307,7 @@ class Config:
         """
         output_dir = Path(self.settings["output_directory"])
 
-        if (
-            self.settings["auto_create_directories"]
-            and not output_dir.exists()
-        ):
+        if self.settings["auto_create_directories"] and not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
             logger.info("Created output directory: %s", output_dir)
 
@@ -328,13 +320,13 @@ class Config:
         Returns:
             Path to temporary directory
         """
-        temp_dir = self.settings["temp_directory"]
-        if temp_dir is None:
+        temp_dir_setting = self.settings["temp_directory"]
+        if temp_dir_setting is None:
             import tempfile
 
             temp_dir = Path(tempfile.gettempdir()) / "pdf_reader"
         else:
-            temp_dir = Path(temp_dir)
+            temp_dir = Path(temp_dir_setting)
 
         if self.settings["auto_create_directories"] and not temp_dir.exists():
             temp_dir.mkdir(parents=True, exist_ok=True)
@@ -389,9 +381,7 @@ class Config:
         try:
             return cls(config_file)
         except Exception as e:
-            raise ConfigurationError(
-                f"Failed to load config from {config_file}: {e}"
-            )
+            raise ConfigurationError(f"Failed to load config from {config_file}: {e}")
 
     def save_config(self, config_file: str) -> None:
         """Save current configuration to JSON file.

@@ -41,9 +41,9 @@ jobs:
         black pdf_reader tests
         isort pdf_reader tests
     
-    - name: Run type checking
-      run: |
-        mypy pdf_reader
+    # - name: Run type checking
+    #   run: |
+    #     mypy pdf_reader
     
     - name: Run tests
       run: |

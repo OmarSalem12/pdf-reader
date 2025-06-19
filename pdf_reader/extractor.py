@@ -7,7 +7,7 @@ content using regular expressions and pattern matching.
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Mapping
 
 from .exceptions import ExtractionError
 
@@ -29,14 +29,16 @@ class TextExtractor:
     """
 
     def __init__(self, 
-                custom_patterns: Optional[Dict[str, List[str]]] = None):
+                 custom_patterns: Optional[Dict[str, List[str]]] = None):
         """
-        Initialize the TextExtractor with default and custom patterns.
+        Initialize the TextExtractor.
 
         Args:
-            custom_patterns: Custom regex patterns for extraction
+            custom_patterns: Optional dictionary of custom regex patterns
         """
         self.patterns = self._get_default_patterns()
+        self.custom_patterns = custom_patterns or {}
+
         if custom_patterns:
             self.patterns.update(custom_patterns)
 
@@ -172,7 +174,7 @@ class TextExtractor:
         except Exception as e:
             error_msg = f"Failed to extract field {field}: {e}"
             logger.error(error_msg)
-            raise ExtractionError(error_msg, field=field)
+            raise ExtractionError(error_msg, field_name=field)
 
     def get_available_fields(self) -> List[str]:
         """
@@ -216,7 +218,7 @@ class TextExtractor:
             return False
 
     def extract_with_custom_patterns(
-        self, text: str, patterns: Dict[str, Union[str, List[str]]]
+        self, text: str, patterns: Mapping[str, Union[str, List[str]]]
     ) -> Dict[str, Any]:
         """
         Extract fields using custom patterns.

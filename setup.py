@@ -4,24 +4,30 @@ Setup script for PDF Reader Package.
 
 from setuptools import setup, find_packages
 import os
+import typing
+
 
 # Read the README file
-def read_readme():
+def read_readme() -> str:
     """Read README.md file."""
-    readme_path = os.path.join(os.path.dirname(__file__), 'README.md')
+    readme_path = os.path.join(os.path.dirname(__file__), "README.md")
     if os.path.exists(readme_path):
-        with open(readme_path, 'r', encoding='utf-8') as f:
+        with open(readme_path, "r", encoding="utf-8") as f:
             return f.read()
     return "PDF Reader Package - Extract data from encrypted PDF files"
 
+
 # Read requirements
-def read_requirements():
+def read_requirements() -> typing.List[str]:
     """Read requirements.txt file."""
-    requirements_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+    requirements_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
     if os.path.exists(requirements_path):
-        with open(requirements_path, 'r', encoding='utf-8') as f:
-            return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        with open(requirements_path, "r", encoding="utf-8") as f:
+            return [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
     return []
+
 
 setup(
     name="pdf-reader",
@@ -107,4 +113,4 @@ setup(
     platforms=["any"],
     license="MIT",
     zip_safe=False,
-) 
+)

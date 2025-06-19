@@ -2,6 +2,8 @@
 Custom exceptions for PDF Reader package.
 """
 
+from typing import Optional
+
 
 class PDFReaderError(Exception):
     """
@@ -12,7 +14,7 @@ class PDFReaderError(Exception):
     the package.
     """
 
-    def __init__(self, message: str, details: str = None):
+    def __init__(self, message: str, details: Optional[str] = None):
         """
         Initialize the PDFReaderError.
 
@@ -40,7 +42,8 @@ class PDFError(PDFReaderError):
     """
 
     def __init__(
-        self, message: str, file_path: str = None, details: str = None
+        self, message: str, file_path: Optional[str] = None, 
+        details: Optional[str] = None
     ):
         """
         Initialize the PDFError.
@@ -65,7 +68,8 @@ class EncryptionError(PDFError):
     """
 
     def __init__(
-        self, message: str, file_path: str = None, encryption_type: str = None
+        self, message: str, file_path: Optional[str] = None, 
+        encryption_type: Optional[str] = None
     ):
         """
         Initialize the EncryptionError.
@@ -90,7 +94,8 @@ class ExtractionError(PDFError):
     """
 
     def __init__(
-        self, message: str, field_name: str = None, text_length: int = None
+        self, message: str, field_name: Optional[str] = None, 
+        text_length: Optional[int] = None
     ):
         """
         Initialize the ExtractionError.
@@ -122,7 +127,8 @@ class ExportError(PDFError):
     """
 
     def __init__(
-        self, message: str, output_path: str = None, format_type: str = None
+        self, message: str, output_path: Optional[str] = None, 
+        format_type: Optional[str] = None
     ):
         """
         Initialize the ExportError.
@@ -155,7 +161,8 @@ class ConfigurationError(PDFError):
     """
 
     def __init__(
-        self, message: str, config_key: str = None, config_file: str = None
+        self, message: str, config_key: Optional[str] = None, 
+        config_file: Optional[str] = None
     ):
         """
         Initialize the ConfigurationError.
@@ -189,9 +196,9 @@ class ValidationError(PDFError):
     def __init__(
         self,
         message: str,
-        field_name: str = None,
-        value: str = None,
-        expected_format: str = None,
+        field_name: Optional[str] = None,
+        value: Optional[str] = None,
+        expected_format: Optional[str] = None,
     ):
         """
         Initialize the ValidationError.
@@ -209,7 +216,7 @@ class ValidationError(PDFError):
         details = []
         if field_name:
             details.append(f"Field: {field_name}")
-        if value is not None:
+        if value:
             details.append(f"Value: {value}")
         if expected_format:
             details.append(f"Expected: {expected_format}")
@@ -223,11 +230,12 @@ class TimeoutError(PDFError):
     Exception raised for operation timeout errors.
 
     This exception is raised when operations take longer than expected,
-    such as PDF processing, data extraction, or export operations.
+    such as PDF processing, network requests, or file operations.
     """
 
     def __init__(
-        self, message: str, operation: str = None, timeout_seconds: int = None
+        self, message: str, operation: Optional[str] = None, 
+        timeout_seconds: Optional[int] = None
     ):
         """
         Initialize the TimeoutError.
@@ -243,7 +251,7 @@ class TimeoutError(PDFError):
         details = []
         if operation:
             details.append(f"Operation: {operation}")
-        if timeout_seconds:
+        if timeout_seconds is not None:
             details.append(f"Timeout: {timeout_seconds}s")
 
         details_str = "; ".join(details) if details else None
@@ -255,21 +263,21 @@ class PermissionError(PDFError):
     Exception raised for permission-related errors.
 
     This exception is raised when there are insufficient permissions
-    to read files, write output, or access system resources.
+    to perform operations, such as reading files or writing output.
     """
 
     def __init__(
-        self, message: str, file_path: str = None, operation: str = None
+        self, message: str, file_path: Optional[str] = None, 
+        operation: Optional[str] = None
     ):
         """
         Initialize the PermissionError.
 
         Args:
             message: Error message describing the permission issue
-            file_path: Optional path to the file that caused the permission
-            error operation: Optional operation that failed due to permissions
+            file_path: Optional path to the file with permission issues
+            operation: Optional operation that failed due to permissions
         """
-        self.file_path = file_path
         self.operation = operation
 
         details = []
@@ -284,17 +292,17 @@ class PermissionError(PDFError):
 
 class DependencyError(PDFError):
     """
-    Exception raised for missing or incompatible dependencies.
+    Exception raised for dependency-related errors.
 
     This exception is raised when required dependencies are missing,
-    incompatible, or not properly installed.
+    incompatible, or have version conflicts.
     """
 
     def __init__(
         self,
         message: str,
-        dependency_name: str = None,
-        required_version: str = None,
+        dependency_name: Optional[str] = None,
+        required_version: Optional[str] = None,
     ):
         """
         Initialize the DependencyError.

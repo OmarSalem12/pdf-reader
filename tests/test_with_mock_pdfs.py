@@ -2,6 +2,7 @@
 
 import unittest
 from unittest.mock import patch, mock_open
+from typing import List
 
 from pdf_reader import PDFReader, TextExtractor, DataExporter, Config
 
@@ -9,7 +10,7 @@ from pdf_reader import PDFReader, TextExtractor, DataExporter, Config
 class TestWithMockPDFs(unittest.TestCase):
     """Test cases using mock PDF files."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
         self.config = Config()
         self.pdf_reader = PDFReader(self.config)
@@ -25,21 +26,19 @@ class TestWithMockPDFs(unittest.TestCase):
         Email: john.doe@example.com
         """
 
-    def test_read_mock_pdf(self):
+    def test_read_mock_pdf(self) -> None:
         """Test reading a mock PDF file."""
         with patch("builtins.open", mock_open(read_data=b"mock pdf data")):
             with patch("PyPDF2.PdfReader") as mock_pdf_reader:
                 mock_reader = mock_pdf_reader.return_value
                 mock_reader.is_encrypted = False
                 mock_reader.pages = [mock_pdf_reader.return_value]
-                mock_reader.pages[0].extract_text.return_value = (
-                    self.mock_pdf_content
-                )
+                mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
 
                 result = self.pdf_reader.read_pdf("mock.pdf")
                 self.assertEqual(result, self.mock_pdf_content)
 
-    def test_extract_from_mock_pdf_content(self):
+    def test_extract_from_mock_pdf_content(self) -> None:
         """Test extracting data from mock PDF content."""
         result = self.extractor.extract_fields(self.mock_pdf_content)
 
@@ -53,7 +52,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertEqual(result["date_of_birth"], "01/15/1990")
         self.assertEqual(result["insurance"], "ABC123456")
 
-    def test_extract_specific_fields(self):
+    def test_extract_specific_fields(self) -> None:
         """Test extracting specific fields from mock content."""
         fields = ["name", "date_of_birth"]
         result = self.extractor.extract_fields(self.mock_pdf_content, fields)
@@ -63,7 +62,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertNotIn("insurance", result)
         self.assertNotIn("phone", result)
 
-    def test_extract_with_custom_patterns(self):
+    def test_extract_with_custom_patterns(self) -> None:
         """Test extraction with custom patterns."""
         custom_patterns = {"custom_field": [r"Custom:\s*(.+)"]}
 
@@ -75,7 +74,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertIn("custom_field", result)
         self.assertEqual(result["custom_field"], "Custom Value")
 
-    def test_export_mock_data(self):
+    def test_export_mock_data(self) -> None:
         """Test exporting mock extracted data."""
         mock_data = [
             {
@@ -103,7 +102,7 @@ class TestWithMockPDFs(unittest.TestCase):
                 self.assertIsInstance(result, str)
                 self.assertTrue(result.endswith(".xlsx"))
 
-    def test_process_mock_pdf(self):
+    def test_process_mock_pdf(self) -> None:
         """Test complete processing of mock PDF."""
         with patch.object(self.pdf_reader, "read_pdf") as mock_read:
             mock_read.return_value = self.mock_pdf_content
@@ -115,30 +114,22 @@ class TestWithMockPDFs(unittest.TestCase):
             self.assertIn("insurance", result)
             self.assertIn("source_file", result)
 
-    def test_mock_pdf_with_password(self):
+    def test_mock_pdf_with_password(self) -> None:
         """Test reading encrypted mock PDF."""
-        with patch(
-            "builtins.open", mock_open(read_data=b"encrypted pdf data")
-        ):
+        with patch("builtins.open", mock_open(read_data=b"encrypted pdf data")):
             with patch("PyPDF2.PdfReader") as mock_pdf_reader:
                 mock_reader = mock_pdf_reader.return_value
                 mock_reader.is_encrypted = True
                 mock_reader.decrypt.return_value = 1
                 mock_reader.pages = [mock_pdf_reader.return_value]
-                mock_reader.pages[0].extract_text.return_value = (
-                    self.mock_pdf_content
-                )
+                mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
 
-                result = self.pdf_reader.read_pdf(
-                    "encrypted.pdf", password="test123"
-                )
+                result = self.pdf_reader.read_pdf("encrypted.pdf", password="test123")
                 self.assertEqual(result, self.mock_pdf_content)
 
-    def test_mock_pdf_encryption_error(self):
+    def test_mock_pdf_encryption_error(self) -> None:
         """Test handling of encryption errors."""
-        with patch(
-            "builtins.open", mock_open(read_data=b"encrypted pdf data")
-        ):
+        with patch("builtins.open", mock_open(read_data=b"encrypted pdf data")):
             with patch("PyPDF2.PdfReader") as mock_pdf_reader:
                 mock_reader = mock_pdf_reader.return_value
                 mock_reader.is_encrypted = True
@@ -147,12 +138,12 @@ class TestWithMockPDFs(unittest.TestCase):
                 with self.assertRaises(Exception):
                     self.pdf_reader.read_pdf("encrypted.pdf", password="wrong")
 
-    def test_mock_pdf_file_not_found(self):
+    def test_mock_pdf_file_not_found(self) -> None:
         """Test handling of non-existent PDF file."""
         with self.assertRaises(Exception):
             self.pdf_reader.read_pdf("nonexistent.pdf")
 
-    def test_validate_mock_data(self):
+    def test_validate_mock_data(self) -> None:
         """Test validation of mock data."""
         valid_data = [
             {"name": "John Doe", "dob": "01/15/1990"},
@@ -160,13 +151,13 @@ class TestWithMockPDFs(unittest.TestCase):
         ]
 
         invalid_data = "not a list"
-        empty_data = []
+        empty_data: List = []
 
         self.assertTrue(self.exporter.validate_data(valid_data))
         self.assertFalse(self.exporter.validate_data(invalid_data))
         self.assertFalse(self.exporter.validate_data(empty_data))
 
-    def test_mock_config_operations(self):
+    def test_mock_config_operations(self) -> None:
         """Test configuration operations with mock data."""
         config = Config()
 
@@ -182,7 +173,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertEqual(config.get("key1"), "value1")
         self.assertEqual(config.get("key2"), "value2")
 
-    def test_mock_pattern_validation(self):
+    def test_mock_pattern_validation(self) -> None:
         """Test pattern validation with mock patterns."""
         valid_pattern = r"Name:\s*(.+)"
         invalid_pattern = r"Name:\s*(.+"
@@ -190,7 +181,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertTrue(self.extractor.validate_pattern(valid_pattern))
         self.assertFalse(self.extractor.validate_pattern(invalid_pattern))
 
-    def test_mock_available_fields(self):
+    def test_mock_available_fields(self) -> None:
         """Test getting available fields."""
         fields = self.extractor.get_available_fields()
         self.assertIsInstance(fields, list)
@@ -198,7 +189,7 @@ class TestWithMockPDFs(unittest.TestCase):
         self.assertIn("date_of_birth", fields)
         self.assertIn("insurance", fields)
 
-    def test_mock_supported_formats(self):
+    def test_mock_supported_formats(self) -> None:
         """Test getting supported export formats."""
         formats = self.exporter.get_supported_formats()
         self.assertIsInstance(formats, list)

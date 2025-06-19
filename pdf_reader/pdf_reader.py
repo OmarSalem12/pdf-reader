@@ -68,7 +68,7 @@ class PDFReader:
                     if not password:
                         raise EncryptionError(
                             "PDF is encrypted but no password provided",
-                            password_provided=False,
+                            file_path=pdf_path,
                         )
                     try:
                         pdf_reader.decrypt(password)
@@ -76,7 +76,7 @@ class PDFReader:
                     except Exception as e:
                         raise EncryptionError(
                             f"Failed to decrypt PDF: {e}",
-                            password_provided=True,
+                            file_path=pdf_path,
                         )
 
                 # Extract text from all pages
@@ -147,7 +147,7 @@ class PDFReader:
                 custom_patterns = {}
                 for i, pattern in enumerate(patterns):
                     field_name = f"custom_field_{i+1}"
-                    custom_patterns[field_name] = pattern
+                    custom_patterns[field_name] = [pattern]
 
                 extracted_data = self.extractor.extract_with_custom_patterns(
                     text_content, custom_patterns

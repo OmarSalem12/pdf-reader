@@ -51,9 +51,6 @@ class DataExporter:
 
         try:
             with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
-                if not data:
-                    return str(file_path)
-
                 fieldnames = list(data[0].keys())
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
@@ -65,9 +62,7 @@ class DataExporter:
         except Exception as e:
             error_msg = f"Failed to export to CSV: {e}"
             logger.error(error_msg)
-            raise ExportError(
-                error_msg, format_type="csv", file_path=str(file_path)
-            )
+            raise ExportError(error_msg, format_type="csv", output_path=str(file_path))
 
     def export_to_excel(
         self, data: List[Dict[str, Any]], filename: Optional[str] = None
@@ -105,6 +100,8 @@ class DataExporter:
         try:
             wb = Workbook()
             ws = wb.active
+            if ws is None:
+                raise ExportError("Failed to create worksheet")
             ws.title = "Extracted Data"
 
             if data:
@@ -127,7 +124,7 @@ class DataExporter:
             error_msg = f"Failed to export to Excel: {e}"
             logger.error(error_msg)
             raise ExportError(
-                error_msg, format_type="excel", file_path=str(file_path)
+                error_msg, format_type="excel", output_path=str(file_path)
             )
 
     def export_to_json(
@@ -167,9 +164,7 @@ class DataExporter:
         except Exception as e:
             error_msg = f"Failed to export to JSON: {e}"
             logger.error(error_msg)
-            raise ExportError(
-                error_msg, format_type="json", file_path=str(file_path)
-            )
+            raise ExportError(error_msg, format_type="json", output_path=str(file_path))
 
     def export_data(
         self,
@@ -192,12 +187,15 @@ class DataExporter:
         """
         format_type = format_type.lower()
 
+        # Extract filename from output_path
+        filename = Path(output_path).name
+
         if format_type == "csv":
-            return self.export_to_csv(data, output_path)
+            return self.export_to_csv(data, filename)
         elif format_type == "excel":
-            return self.export_to_excel(data, output_path)
+            return self.export_to_excel(data, filename)
         elif format_type == "json":
-            return self.export_to_json(data, output_path)
+            return self.export_to_json(data, filename)
         else:
             raise ExportError(f"Unsupported export format: {format_type}")
 
@@ -209,7 +207,7 @@ class DataExporter:
         """
         return ["csv", "excel", "json"]
 
-    def validate_data(self, data: List[Dict[str, Any]]) -> bool:
+    def validate_data(self, data: Any) -> bool:
         """Validate data before export.
 
         Args:
