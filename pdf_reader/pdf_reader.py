@@ -7,10 +7,10 @@ import glob
 import logging
 from typing import List, Dict, Any, Optional
 from PyPDF2 import PdfReader
-from .exceptions import EncryptionError, ExtractionError, OutputError
+from .exceptions import EncryptionError, ExtractionError, ExportError
 from .config import Config
-from .extractor import FieldExtractor
-from .exporter import SpreadsheetExporter
+from .extractor import TextExtractor
+from .exporter import DataExporter
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ class PDFReader:
             config_file (Optional[str]): Path to custom configuration JSON file.
         """
         self.config = Config(config_file)
-        self.extractor = FieldExtractor(self.config.get_patterns())
-        self.exporter = SpreadsheetExporter()
+        self.extractor = TextExtractor(self.config.get_patterns())
+        self.exporter = DataExporter()
     
     def read_pdf(self, file_path: str, password: Optional[str] = None) -> str:
         """Reads and decrypts a single PDF file.
@@ -151,12 +151,12 @@ class PDFReader:
             format_type (str): Output format ("excel" or "csv").
         
         Raises:
-            OutputError: If export fails.
+            ExportError: If export fails.
         """
         try:
             self.exporter.export(data, output_file, format_type)
         except Exception as e:
-            raise OutputError(f"Failed to export data: {e}")
+            raise ExportError(f"Failed to export data: {e}")
     
     def process_single_pdf(self, pdf_path: str, password: Optional[str] = None, 
                           output_file: Optional[str] = None) -> Dict[str, Any]:
@@ -202,7 +202,7 @@ class PDFReader:
             pattern (str): Regex pattern to add.
         """
         self.config.add_pattern(pattern_type, pattern)
-        self.extractor = FieldExtractor(self.config.get_patterns())
+        self.extractor = TextExtractor(self.config.get_patterns())
     
     def get_patterns(self) -> Dict[str, List[str]]:
         """Gets current extraction patterns.

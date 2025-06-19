@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import Config
-from .exceptions import PDFReaderError, EncryptionError, ExtractionError, OutputError
+from .exceptions import PDFReaderError, EncryptionError, ExtractionError
 from .exporter import DataExporter
 from .extractor import TextExtractor
 from .pdf_reader import PDFReader
