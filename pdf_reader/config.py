@@ -16,8 +16,8 @@ class Config:
     """
     Configuration management class for PDF Reader package.
 
-    This class handles loading and managing configuration settings from 
-    various sources including environment variables, configuration files, 
+    This class handles loading and managing configuration settings from
+    various sources including environment variables, configuration files,
     and defaults.
 
     Attributes:
