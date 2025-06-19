@@ -5,7 +5,7 @@ Main PDF Reader class for handling encrypted PDF files.
 import os
 import glob
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Path
 from PyPDF2 import PdfReader
 from .exceptions import EncryptionError, ExtractionError, ExportError
 from .config import Config
@@ -17,13 +17,20 @@ logger = logging.getLogger(__name__)
 class PDFReader:
     """Main class for reading encrypted PDF files and extracting fields."""
     
-    def __init__(self, config_file: Optional[str] = None) -> None:
-        """Initializes the PDFReader.
-        
-        Args:
-            config_file (Optional[str]): Path to custom configuration JSON file.
+    def __init__(self, config: Optional[object] = None):
         """
-        self.config = Config(config_file)
+        Initialize the PDFReader.
+        Args:
+            config: Optional Config object or path to a configuration file (str/Path)
+        """
+        if config is None:
+            self.config = Config()
+        elif isinstance(config, Config):
+            self.config = config
+        elif isinstance(config, (str, Path)):
+            self.config = Config(config)
+        else:
+            raise TypeError("config must be None, a Config object, or a path to a config file")
         self.extractor = TextExtractor(self.config.get_patterns())
         self.exporter = DataExporter()
     

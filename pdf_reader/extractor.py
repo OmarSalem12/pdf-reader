@@ -27,13 +27,13 @@ class TextExtractor:
         custom_patterns (Dict[str, Pattern]): Dictionary of custom regex patterns
     """
     
-    def __init__(self, custom_patterns: Optional[Dict[str, str]] = None):
+    def __init__(self, custom_patterns: Optional[Dict[str, object]] = None):
         """
         Initialize the TextExtractor with default and custom patterns.
         
         Args:
             custom_patterns: Optional dictionary of custom regex patterns
-                           where keys are field names and values are regex strings
+                           where keys are field names and values are regex strings or lists of regex strings
         """
         self.patterns = self._get_default_patterns()
         self.custom_patterns = {}
@@ -52,7 +52,8 @@ class TextExtractor:
             Dictionary mapping field names to compiled regex patterns
         """
         return {
-            'name': re.compile(r'Name[:\s]*([A-Za-z\s]+)', re.IGNORECASE),
+            # Non-greedy, match up to end of line for name
+            'name': re.compile(r'Name[:\s]*(.+)', re.IGNORECASE),
             'date_of_birth': re.compile(r'(?:Date of Birth|DOB|Birth Date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', re.IGNORECASE),
             'insurance_number': re.compile(r'(?:Insurance|Policy|Member)[\s#]*Number[:\s]*([A-Za-z0-9-]+)', re.IGNORECASE),
             'insurance_provider': re.compile(r'(?:Insurance|Provider|Company)[:\s]*([A-Za-z\s]+)', re.IGNORECASE),
@@ -62,23 +63,31 @@ class TextExtractor:
             'ssn': re.compile(r'(?:SSN|Social Security)[:\s]*(\d{3}-\d{2}-\d{4})', re.IGNORECASE),
         }
     
-    def add_custom_patterns(self, patterns: Dict[str, str]) -> None:
+    def add_custom_patterns(self, patterns: Dict[str, object]) -> None:
         """
         Add custom regex patterns for field extraction.
         
         Args:
-            patterns: Dictionary where keys are field names and values are regex strings
+            patterns: Dictionary where keys are field names and values are regex strings or lists of regex strings
             
         Raises:
             ExtractionError: If any pattern is invalid
         """
-        for field_name, pattern_str in patterns.items():
+        for field_name, pattern_value in patterns.items():
             try:
-                compiled_pattern = re.compile(pattern_str, re.IGNORECASE)
-                self.custom_patterns[field_name] = compiled_pattern
-                logger.debug("Added custom pattern for field '%s': %s", field_name, pattern_str)
+                if isinstance(pattern_value, str):
+                    compiled_pattern = re.compile(pattern_value, re.IGNORECASE)
+                    self.custom_patterns[field_name] = compiled_pattern
+                    logger.debug("Added custom pattern for field '%s': %s", field_name, pattern_value)
+                elif isinstance(pattern_value, list):
+                    # Compile all patterns and store as a list
+                    compiled_patterns = [re.compile(p, re.IGNORECASE) for p in pattern_value]
+                    self.custom_patterns[field_name] = compiled_patterns
+                    logger.debug("Added custom pattern list for field '%s': %s", field_name, pattern_value)
+                else:
+                    raise ExtractionError(f"Pattern for field '{field_name}' must be a string or list of strings.")
             except re.error as e:
-                error_msg = f"Invalid regex pattern for field '{field_name}': {pattern_str}"
+                error_msg = f"Invalid regex pattern for field '{field_name}': {pattern_value}"
                 logger.error(error_msg)
                 raise ExtractionError(error_msg) from e
     
@@ -109,18 +118,31 @@ class TextExtractor:
             match = pattern.search(text)
             if match:
                 value = match.group(1).strip()
+                # For name, only take up to the first line (fixes greedy match)
+                if field_name == 'name':
+                    value = value.splitlines()[0].strip()
                 if value:
                     extracted_data[field_name] = value
                     logger.debug("Extracted field '%s': %s", field_name, value)
         
         # Extract using custom patterns
         for field_name, pattern in self.custom_patterns.items():
-            match = pattern.search(text)
-            if match:
-                value = match.group(1).strip()
-                if value:
-                    extracted_data[field_name] = value
-                    logger.debug("Extracted custom field '%s': %s", field_name, value)
+            if isinstance(pattern, list):
+                for pat in pattern:
+                    match = pat.search(text)
+                    if match:
+                        value = match.group(1).strip()
+                        if value:
+                            extracted_data[field_name] = value
+                            logger.debug("Extracted custom field '%s': %s", field_name, value)
+                            break
+            else:
+                match = pattern.search(text)
+                if match:
+                    value = match.group(1).strip()
+                    if value:
+                        extracted_data[field_name] = value
+                        logger.debug("Extracted custom field '%s': %s", field_name, value)
         
         logger.info("Extracted %d fields from text", len(extracted_data))
         return extracted_data
