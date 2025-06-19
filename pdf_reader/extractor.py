@@ -1,8 +1,8 @@
 """
 Text extraction functionality for PDF Reader package.
 
-This module provides functionality to extract structured data from PDF text content
-using regular expressions and pattern matching.
+This module provides functionality to extract structured data from PDF text
+content using regular expressions and pattern matching.
 """
 
 import logging
@@ -19,15 +19,17 @@ class TextExtractor:
     A class for extracting structured data from PDF text content.
 
     This class provides methods to extract specific fields from PDF text using
-    regular expressions and pattern matching. It supports both predefined patterns
-    and custom patterns for flexible data extraction.
+    regular expressions and pattern matching. It supports both predefined
+    patterns and custom patterns for flexible data extraction.
 
     Attributes:
         patterns (Dict[str, Pattern]): Dictionary of compiled regex patterns
-        custom_patterns (Dict[str, Pattern]): Dictionary of custom regex patterns
+        custom_patterns (Dict[str, Pattern]): Dictionary of custom regex 
+        patterns
     """
 
-    def __init__(self, custom_patterns: Optional[Dict[str, List[str]]] = None):
+    def __init__(self, 
+                custom_patterns: Optional[Dict[str, List[str]]] = None):
         """
         Initialize the TextExtractor with default and custom patterns.
 
@@ -39,7 +41,8 @@ class TextExtractor:
             self.patterns.update(custom_patterns)
 
         logger.debug(
-            "TextExtractor initialized with %d default patterns and %d custom patterns",
+            "TextExtractor initialized with %d default patterns \
+                and %d custom patterns",
             len(self.patterns),
             len(self.custom_patterns),
         )
@@ -255,7 +258,8 @@ class TextExtractor:
                             break
 
             logger.info(
-                "Extracted %d fields with custom patterns", len(extracted_data)
+                "Extracted %d fields with custom patterns",
+                len(extracted_data)
             )
             return extracted_data
 

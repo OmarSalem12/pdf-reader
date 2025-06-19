@@ -7,8 +7,9 @@ class PDFReaderError(Exception):
     """
     Base exception class for PDF Reader package.
 
-    This is the base exception that all other exceptions in the package inherit from.
-    It provides a common interface for error handling across the package.
+    This is the base exception that all other exceptions in the package
+    inherit from. It provides a common interface for error handling across
+    the package.
     """
 
     def __init__(self, message: str, details: str = None):
@@ -129,7 +130,8 @@ class ExportError(PDFError):
         Args:
             message: Error message describing the export issue
             output_path: Optional path where export was attempted
-            format_type: Optional format type that failed (e.g., 'excel', 'csv')
+            format_type: Optional format type that failed (e.g., 'excel',
+            'csv')
         """
         self.output_path = output_path
         self.format_type = format_type
@@ -264,8 +266,8 @@ class PermissionError(PDFError):
 
         Args:
             message: Error message describing the permission issue
-            file_path: Optional path to the file that caused the permission error
-            operation: Optional operation that failed due to permissions
+            file_path: Optional path to the file that caused the permission
+            error operation: Optional operation that failed due to permissions
         """
         self.file_path = file_path
         self.operation = operation
