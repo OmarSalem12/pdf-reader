@@ -10,8 +10,8 @@ A Python package for reading encrypted PDF files, extracting specific fields (Na
 
 **With pip (from source):**
 ```bash
-git clone https://github.com/yourusername/pdf_reader.git
-cd pdf_reader
+git clone https://github.com/OmarSalem12/pdf-reader.git
+cd pdf-reader
 python3 -m venv venv
 source venv/bin/activate
 pip install -e .
@@ -132,8 +132,8 @@ pip install pdf-reader
 
 ### From source
 ```bash
-git clone https://github.com/yourusername/pdf_reader.git
-cd pdf_reader
+git clone https://github.com/OmarSalem12/pdf-reader.git
+cd pdf-reader
 pip install -e .
 ```
 
