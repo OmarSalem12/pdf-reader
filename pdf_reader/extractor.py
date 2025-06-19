@@ -1,163 +1,190 @@
 """
-Text extraction and field parsing functionality.
+Text extraction utilities for PDF content.
+
+This module provides functionality to extract structured data from PDF text content
+using regular expressions and pattern matching.
 """
 
+import logging
 import re
-import regex
-from datetime import datetime
-from typing import Dict, List, Optional, Any
-from dateutil import parser as date_parser
+from typing import Dict, List, Optional, Pattern, Union
+
 from .exceptions import ExtractionError
 
+logger = logging.getLogger(__name__)
 
-class FieldExtractor:
-    """Extract specific fields from PDF text content."""
+
+class TextExtractor:
+    """
+    A class for extracting structured data from PDF text content.
     
-    def __init__(self, patterns: Dict[str, List[str]]):
-        """Initialize extractor with patterns.
+    This class provides methods to extract specific fields from PDF text using
+    regular expressions and pattern matching. It supports both predefined patterns
+    and custom patterns for flexible data extraction.
+    
+    Attributes:
+        patterns (Dict[str, Pattern]): Dictionary of compiled regex patterns
+        custom_patterns (Dict[str, Pattern]): Dictionary of custom regex patterns
+    """
+    
+    def __init__(self, custom_patterns: Optional[Dict[str, str]] = None):
+        """
+        Initialize the TextExtractor with default and custom patterns.
         
         Args:
-            patterns: Dictionary of pattern types and their regex patterns
+            custom_patterns: Optional dictionary of custom regex patterns
+                           where keys are field names and values are regex strings
         """
-        self.patterns = patterns
-        self.compiled_patterns = self._compile_patterns()
+        self.patterns = self._get_default_patterns()
+        self.custom_patterns = {}
+        
+        if custom_patterns:
+            self.add_custom_patterns(custom_patterns)
+            
+        logger.debug("TextExtractor initialized with %d default patterns and %d custom patterns",
+                    len(self.patterns), len(self.custom_patterns))
     
-    def _compile_patterns(self) -> Dict[str, List[re.Pattern]]:
-        """Compile regex patterns for efficiency.
+    def _get_default_patterns(self) -> Dict[str, Pattern]:
+        """
+        Get the default regex patterns for common fields.
         
         Returns:
-            Dictionary of compiled regex patterns
+            Dictionary mapping field names to compiled regex patterns
         """
-        compiled = {}
-        for pattern_type, pattern_list in self.patterns.items():
-            compiled[pattern_type] = [re.compile(pattern, re.IGNORECASE | re.MULTILINE) for pattern in pattern_list]
-        return compiled
+        return {
+            'name': re.compile(r'Name[:\s]*([A-Za-z\s]+)', re.IGNORECASE),
+            'date_of_birth': re.compile(r'(?:Date of Birth|DOB|Birth Date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})', re.IGNORECASE),
+            'insurance_number': re.compile(r'(?:Insurance|Policy|Member)[\s#]*Number[:\s]*([A-Za-z0-9-]+)', re.IGNORECASE),
+            'insurance_provider': re.compile(r'(?:Insurance|Provider|Company)[:\s]*([A-Za-z\s]+)', re.IGNORECASE),
+            'phone': re.compile(r'(?:Phone|Tel|Telephone)[:\s]*(\d{3}[-.]?\d{3}[-.]?\d{4})', re.IGNORECASE),
+            'email': re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'),
+            'address': re.compile(r'(?:Address)[:\s]*([0-9A-Za-z\s,.-]+)', re.IGNORECASE),
+            'ssn': re.compile(r'(?:SSN|Social Security)[:\s]*(\d{3}-\d{2}-\d{4})', re.IGNORECASE),
+        }
     
-    def extract_fields(self, text: str, filename: str = "") -> Dict[str, Any]:
-        """Extract all fields from text.
+    def add_custom_patterns(self, patterns: Dict[str, str]) -> None:
+        """
+        Add custom regex patterns for field extraction.
         
         Args:
-            text: Text content from PDF
-            filename: Source filename for reference
+            patterns: Dictionary where keys are field names and values are regex strings
             
-        Returns:
-            Dictionary containing extracted fields
+        Raises:
+            ExtractionError: If any pattern is invalid
         """
-        try:
-            extracted_data = {
-                "Name": self._extract_name(text),
-                "Date of Birth": self._extract_dob(text),
-                "Insurance Information": self._extract_insurance(text),
-                "Source File": filename,
-                "Extraction Date": datetime.now().isoformat(),
-                "Raw Text": text[:1000] + "..." if len(text) > 1000 else text  # Truncated for debugging
-            }
-            
-            return extracted_data
-            
-        except Exception as e:
-            raise ExtractionError(f"Error extracting fields: {e}")
-    
-    def _extract_name(self, text: str) -> Optional[str]:
-        """Extract name from text.
-        
-        Args:
-            text: Text content to search
-            
-        Returns:
-            Extracted name or None if not found
-        """
-        for pattern in self.compiled_patterns.get("name_patterns", []):
-            match = pattern.search(text)
-            if match:
-                name = match.group(1).strip()
-                # Basic validation - should contain at least 2 words and reasonable length
-                words = name.split()
-                if len(words) >= 2 and 3 <= len(name) <= 100:
-                    # Clean up any extra whitespace or newlines
-                    name = re.sub(r'\s+', ' ', name).strip()
-                    return name
-        
-        return None
-    
-    def _extract_dob(self, text: str) -> Optional[str]:
-        """Extract date of birth from text.
-        
-        Args:
-            text: Text content to search
-            
-        Returns:
-            Extracted date as string or None if not found
-        """
-        for pattern in self.compiled_patterns.get("dob_patterns", []):
-            match = pattern.search(text)
-            if match:
-                date_str = match.group(1).strip()
-                # Try to parse and validate the date
-                try:
-                    parsed_date = date_parser.parse(date_str, dayfirst=False)
-                    # Ensure it's a reasonable date (not in the future, not too old)
-                    if parsed_date.year > 1900 and parsed_date.year <= datetime.now().year:
-                        return parsed_date.strftime("%m/%d/%Y")
-                except (ValueError, TypeError):
-                    continue
-        
-        return None
-    
-    def _extract_insurance(self, text: str) -> Optional[str]:
-        """Extract insurance information from text.
-        
-        Args:
-            text: Text content to search
-            
-        Returns:
-            Extracted insurance info or None if not found
-        """
-        insurance_info = []
-        
-        for pattern in self.compiled_patterns.get("insurance_patterns", []):
-            matches = pattern.finditer(text)
-            for match in matches:
-                info = match.group(1).strip()
-                if info and len(info) > 2 and len(info) < 200:
-                    # Clean up the extracted text
-                    info = re.sub(r'\s+', ' ', info).strip()
-                    insurance_info.append(info)
-        
-        if insurance_info:
-            # Return the first found insurance info, or combine multiple
-            return "; ".join(insurance_info[:3])  # Limit to first 3 matches
-        
-        return None
-    
-    def extract_multiple(self, text_list: List[str], filenames: List[str] = None) -> List[Dict[str, Any]]:
-        """Extract fields from multiple text contents.
-        
-        Args:
-            text_list: List of text contents
-            filenames: List of corresponding filenames
-            
-        Returns:
-            List of dictionaries containing extracted fields
-        """
-        if filenames is None:
-            filenames = [f"file_{i}" for i in range(len(text_list))]
-        
-        results = []
-        for text, filename in zip(text_list, filenames):
+        for field_name, pattern_str in patterns.items():
             try:
-                extracted = self.extract_fields(text, filename)
-                results.append(extracted)
-            except ExtractionError as e:
-                # Log error but continue with other files
-                print(f"Warning: Could not extract from {filename}: {e}")
-                results.append({
-                    "Name": None,
-                    "Date of Birth": None,
-                    "Insurance Information": None,
-                    "Source File": filename,
-                    "Extraction Date": datetime.now().isoformat(),
-                    "Error": str(e)
-                })
+                compiled_pattern = re.compile(pattern_str, re.IGNORECASE)
+                self.custom_patterns[field_name] = compiled_pattern
+                logger.debug("Added custom pattern for field '%s': %s", field_name, pattern_str)
+            except re.error as e:
+                error_msg = f"Invalid regex pattern for field '{field_name}': {pattern_str}"
+                logger.error(error_msg)
+                raise ExtractionError(error_msg) from e
+    
+    def extract_fields(self, text: str) -> Dict[str, str]:
+        """
+        Extract all available fields from the given text.
         
-        return results 
+        Args:
+            text: The text content to extract fields from
+            
+        Returns:
+            Dictionary mapping field names to extracted values
+            
+        Raises:
+            ExtractionError: If text is empty or invalid
+        """
+        if not text or not text.strip():
+            error_msg = "Cannot extract fields from empty or invalid text"
+            logger.error(error_msg)
+            raise ExtractionError(error_msg)
+        
+        logger.debug("Extracting fields from text of length %d", len(text))
+        
+        extracted_data = {}
+        
+        # Extract using default patterns
+        for field_name, pattern in self.patterns.items():
+            match = pattern.search(text)
+            if match:
+                value = match.group(1).strip()
+                if value:
+                    extracted_data[field_name] = value
+                    logger.debug("Extracted field '%s': %s", field_name, value)
+        
+        # Extract using custom patterns
+        for field_name, pattern in self.custom_patterns.items():
+            match = pattern.search(text)
+            if match:
+                value = match.group(1).strip()
+                if value:
+                    extracted_data[field_name] = value
+                    logger.debug("Extracted custom field '%s': %s", field_name, value)
+        
+        logger.info("Extracted %d fields from text", len(extracted_data))
+        return extracted_data
+    
+    def extract_specific_field(self, text: str, field_name: str) -> Optional[str]:
+        """
+        Extract a specific field from the given text.
+        
+        Args:
+            text: The text content to extract from
+            field_name: The name of the field to extract
+            
+        Returns:
+            The extracted value if found, None otherwise
+            
+        Raises:
+            ExtractionError: If text is empty or field_name is invalid
+        """
+        if not text or not text.strip():
+            error_msg = "Cannot extract field from empty or invalid text"
+            logger.error(error_msg)
+            raise ExtractionError(error_msg)
+        
+        if not field_name:
+            error_msg = "Field name cannot be empty"
+            logger.error(error_msg)
+            raise ExtractionError(error_msg)
+        
+        logger.debug("Extracting specific field '%s' from text", field_name)
+        
+        # Check default patterns first
+        if field_name in self.patterns:
+            match = self.patterns[field_name].search(text)
+            if match:
+                value = match.group(1).strip()
+                if value:
+                    logger.debug("Extracted field '%s': %s", field_name, value)
+                    return value
+        
+        # Check custom patterns
+        if field_name in self.custom_patterns:
+            match = self.custom_patterns[field_name].search(text)
+            if match:
+                value = match.group(1).strip()
+                if value:
+                    logger.debug("Extracted custom field '%s': %s", field_name, value)
+                    return value
+        
+        logger.debug("Field '%s' not found in text", field_name)
+        return None
+    
+    def get_available_fields(self) -> List[str]:
+        """
+        Get a list of all available field names (default + custom).
+        
+        Returns:
+            List of field names that can be extracted
+        """
+        all_fields = list(self.patterns.keys()) + list(self.custom_patterns.keys())
+        logger.debug("Available fields: %s", all_fields)
+        return all_fields
+    
+    def clear_custom_patterns(self) -> None:
+        """Clear all custom patterns."""
+        count = len(self.custom_patterns)
+        self.custom_patterns.clear()
+        logger.info("Cleared %d custom patterns", count) 
