@@ -2,6 +2,7 @@
 
 import unittest
 from unittest.mock import patch, mock_open
+from pathlib import Path
 
 from pdf_reader import (
     PDFReader,
@@ -48,10 +49,7 @@ class TestPDFReaderPackage(unittest.TestCase):
         """Test DataExporter initialization."""
         exporter = DataExporter()
         self.assertIsNotNone(exporter)
-        self.assertIsInstance(
-            exporter.output_directory,
-            type(self.config.get("output_directory")),
-        )
+        self.assertIsInstance(exporter.output_directory, Path)
 
     def test_extract_fields_from_text(self) -> None:
         """Test field extraction from text."""
@@ -114,8 +112,9 @@ class TestPDFReaderPackage(unittest.TestCase):
     def test_pdf_reader_with_config_file(self) -> None:
         """Test PDFReader with config file path."""
         with patch("builtins.open", mock_open(read_data='{"test": "value"}')):
-            reader = PDFReader("test_config.json")
-            self.assertIsNotNone(reader)
+            with patch("pathlib.Path.exists", return_value=True):
+                reader = PDFReader("test_config.json")
+                self.assertIsNotNone(reader)
 
     def test_extract_with_custom_patterns(self) -> None:
         """Test extraction with custom patterns."""
@@ -159,8 +158,9 @@ class TestPDFReaderPackage(unittest.TestCase):
     def test_config_from_file(self) -> None:
         """Test Config.from_file method."""
         with patch("builtins.open", mock_open(read_data='{"test": "value"}')):
-            config = Config.from_file("test.json")
-            self.assertIsInstance(config, Config)
+            with patch("pathlib.Path.exists", return_value=True):
+                config = Config.from_file("test.json")
+                self.assertIsInstance(config, Config)
 
     def test_config_save_config(self) -> None:
         """Test Config.save_config method."""

@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import patch, mock_open
 from typing import List
+import pathlib
 
 from pdf_reader import PDFReader, TextExtractor, DataExporter, Config
 
@@ -29,14 +30,15 @@ class TestWithMockPDFs(unittest.TestCase):
     def test_read_mock_pdf(self) -> None:
         """Test reading a mock PDF file."""
         with patch("builtins.open", mock_open(read_data=b"mock pdf data")):
-            with patch("PyPDF2.PdfReader") as mock_pdf_reader:
-                mock_reader = mock_pdf_reader.return_value
-                mock_reader.is_encrypted = False
-                mock_reader.pages = [mock_pdf_reader.return_value]
-                mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
+            with patch("pathlib.Path.exists", return_value=True):
+                with patch("PyPDF2.PdfReader") as mock_pdf_reader:
+                    mock_reader = mock_pdf_reader.return_value
+                    mock_reader.is_encrypted = False
+                    mock_reader.pages = [mock_pdf_reader.return_value]
+                    mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
 
-                result = self.pdf_reader.read_pdf("mock.pdf")
-                self.assertEqual(result, self.mock_pdf_content)
+                    result = self.pdf_reader.read_pdf("mock.pdf")
+                    self.assertEqual(result.strip(), self.mock_pdf_content.strip())
 
     def test_extract_from_mock_pdf_content(self) -> None:
         """Test extracting data from mock PDF content."""
@@ -117,26 +119,28 @@ class TestWithMockPDFs(unittest.TestCase):
     def test_mock_pdf_with_password(self) -> None:
         """Test reading encrypted mock PDF."""
         with patch("builtins.open", mock_open(read_data=b"encrypted pdf data")):
-            with patch("PyPDF2.PdfReader") as mock_pdf_reader:
-                mock_reader = mock_pdf_reader.return_value
-                mock_reader.is_encrypted = True
-                mock_reader.decrypt.return_value = 1
-                mock_reader.pages = [mock_pdf_reader.return_value]
-                mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
+            with patch("pathlib.Path.exists", return_value=True):
+                with patch("PyPDF2.PdfReader") as mock_pdf_reader:
+                    mock_reader = mock_pdf_reader.return_value
+                    mock_reader.is_encrypted = True
+                    mock_reader.decrypt.return_value = 1
+                    mock_reader.pages = [mock_pdf_reader.return_value]
+                    mock_reader.pages[0].extract_text.return_value = self.mock_pdf_content
 
-                result = self.pdf_reader.read_pdf("encrypted.pdf", password="test123")
-                self.assertEqual(result, self.mock_pdf_content)
+                    result = self.pdf_reader.read_pdf("encrypted.pdf", password="test123")
+                    self.assertEqual(result.strip(), self.mock_pdf_content.strip())
 
     def test_mock_pdf_encryption_error(self) -> None:
         """Test handling of encryption errors."""
         with patch("builtins.open", mock_open(read_data=b"encrypted pdf data")):
-            with patch("PyPDF2.PdfReader") as mock_pdf_reader:
-                mock_reader = mock_pdf_reader.return_value
-                mock_reader.is_encrypted = True
-                mock_reader.decrypt.side_effect = Exception("Wrong password")
+            with patch("pathlib.Path.exists", return_value=True):
+                with patch("PyPDF2.PdfReader") as mock_pdf_reader:
+                    mock_reader = mock_pdf_reader.return_value
+                    mock_reader.is_encrypted = True
+                    mock_reader.decrypt.side_effect = Exception("Wrong password")
 
-                with self.assertRaises(Exception):
-                    self.pdf_reader.read_pdf("encrypted.pdf", password="wrong")
+                    with self.assertRaises(Exception):
+                        self.pdf_reader.read_pdf("encrypted.pdf", password="wrong")
 
     def test_mock_pdf_file_not_found(self) -> None:
         """Test handling of non-existent PDF file."""

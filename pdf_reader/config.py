@@ -56,7 +56,7 @@ class Config:
             config_file: Optional path to configuration file to load
         """
         self.settings = self._get_default_settings()
-        self.config_file = None
+        self.config_file: Optional[Path] = None
 
         if config_file:
             self.load_config_file(config_file)
@@ -159,7 +159,7 @@ class Config:
                 raise ValueError("Config file must contain a JSON object")
 
             self.settings.update(file_settings)
-            self.config_file = config_path  # type: ignore
+            self.config_file = config_path
             logger.info("Configuration loaded from file: %s", config_path)
 
         except json.JSONDecodeError as e:
@@ -239,10 +239,9 @@ class Config:
         if config_file is None:
             if self.config_file is None:
                 raise ConfigurationError("No config file path specified")
-        else:
             config_file = self.config_file
 
-        config_path = Path(config_file)  # type: ignore
+        config_path = Path(config_file)
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
