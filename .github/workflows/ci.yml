@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -82,12 +86,11 @@ jobs:
     - name: Check package
       run: twine check dist/*
     
-    - name: Upload to PyPI
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        skip-existing: true
+    # - name: Upload to PyPI
+    #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #   uses: pypa/gh-action-pypi-publish@release/v1
+    #   with:
+    #     skip-existing: true
 
   security:
     runs-on: ubuntu-latest
