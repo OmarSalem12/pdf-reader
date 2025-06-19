@@ -102,15 +102,38 @@ Save as `my_patterns.json` and use with `--config my_patterns.json` or `PDFReade
 
 ---
 
-### 5. Troubleshooting
+### 5. Testing
+
+**Run all tests:**
+```bash
+cd tests
+python run_tests.py
+```
+
+**Run tests directly:**
+```bash
+cd tests
+python test_with_mock_pdfs.py
+```
+
+The test suite includes:
+- ✅ Single PDF extraction testing
+- ✅ Multiple PDF batch processing
+- ✅ Error handling (wrong passwords, unencrypted PDFs)
+- ✅ Custom pattern testing
+- ✅ Excel export verification
+
+---
+
+### 6. Troubleshooting
 - If extraction is too broad, make your regex non-greedy and end-aware (see above).
 - If you get `ModuleNotFoundError`, ensure you are in your virtual environment and dependencies are installed.
 - For encrypted PDFs, always provide the correct password.
 
 ---
 
-### 6. More Examples
-See `example_usage.py` for more advanced usage and pattern customization.
+### 7. More Examples
+See the test script `tests/test_with_mock_pdfs.py` for comprehensive usage examples and pattern customization.
 
 ---
 

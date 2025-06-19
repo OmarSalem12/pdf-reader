@@ -134,4 +134,11 @@ dmypy.json
 *.pdf
 sample_config.json
 extracted_data/
-output/ 
+output/
+
+# Test files and outputs
+tests/mock_pdfs/
+tests/*.xlsx
+tests/*.csv
+test_output_*.xlsx
+test_output_*.csv 
