@@ -1,220 +1,270 @@
 """
-Main PDF Reader class for handling encrypted PDF files.
+Main PDF Reader class for processing encrypted PDF files.
 """
 
-import os
-import glob
 import logging
-from typing import List, Dict, Any, Optional, Path
-from PyPDF2 import PdfReader
-from .exceptions import EncryptionError, ExtractionError, ExportError
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+import PyPDF2
+
 from .config import Config
+from .exceptions import EncryptionError, ExtractionError, PDFError
 from .extractor import TextExtractor
 from .exporter import DataExporter
 
 logger = logging.getLogger(__name__)
 
+
 class PDFReader:
-    """Main class for reading encrypted PDF files and extracting fields."""
-    
-    def __init__(self, config: Optional[object] = None):
-        """
-        Initialize the PDFReader.
+    """Main class for reading and processing PDF files."""
+
+    def __init__(self, config: Optional[Union[Config, str]] = None):
+        """Initialize PDF reader.
+
         Args:
-            config: Optional Config object or path to a configuration file (str/Path)
+            config: Configuration object or path to config file
         """
-        if config is None:
-            self.config = Config()
+        if isinstance(config, str):
+            self.config = Config.from_file(config)
         elif isinstance(config, Config):
             self.config = config
-        elif isinstance(config, (str, Path)):
-            self.config = Config(config)
         else:
-            raise TypeError("config must be None, a Config object, or a path to a config file")
-        self.extractor = TextExtractor(self.config.get_patterns())
-        self.exporter = DataExporter()
-    
-    def read_pdf(self, file_path: str, password: Optional[str] = None) -> str:
-        """Reads and decrypts a single PDF file.
-        
+            self.config = Config()
+
+        self.extractor = TextExtractor()
+        self.exporter = DataExporter(self.config.get("output_directory"))
+
+        logger.info(
+            "PDFReader initialized with config: %s",
+            self.config.get("output_directory"),
+        )
+
+    def read_pdf(self, pdf_path: str, password: Optional[str] = None) -> str:
+        """Read PDF file and extract text content.
+
         Args:
-            file_path (str): Path to the PDF file.
-            password (Optional[str]): Password for encrypted PDF.
-        
+            pdf_path: Path to PDF file
+            password: Password for encrypted PDF
+
         Returns:
-            str: Extracted text content from PDF.
-        
+            Extracted text content
+
         Raises:
-            EncryptionError: If PDF is encrypted and password is incorrect.
-            ExtractionError: If PDF cannot be read or text cannot be extracted.
+            EncryptionError: If PDF is encrypted and password is incorrect
+            PDFError: If PDF cannot be read
         """
+        pdf_file = Path(pdf_path)
+
+        if not pdf_file.exists():
+            raise PDFError(f"PDF file not found: {pdf_path}")
+
         try:
-            if not os.path.exists(file_path):
-                raise ExtractionError(f"PDF file not found: {file_path}")
-            
-            with open(file_path, 'rb') as file:
-                pdf_reader = PdfReader(file)
-                
+            with open(pdf_file, "rb") as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+
                 # Check if PDF is encrypted
                 if pdf_reader.is_encrypted:
                     if not password:
-                        raise EncryptionError(f"PDF is encrypted but no password provided: {file_path}")
+                        raise EncryptionError(
+                            "PDF is encrypted but no password provided",
+                            password_provided=False,
+                        )
                     try:
                         pdf_reader.decrypt(password)
+                        logger.info("Successfully decrypted PDF with password")
                     except Exception as e:
-                        raise EncryptionError(f"Failed to decrypt PDF with provided password: {e}")
-                
+                        raise EncryptionError(
+                            f"Failed to decrypt PDF: {e}",
+                            password_provided=True,
+                        )
+
                 # Extract text from all pages
                 text_content = ""
-                for page in pdf_reader.pages:
+                for page_num, page in enumerate(pdf_reader.pages):
                     try:
                         page_text = page.extract_text()
                         if page_text:
                             text_content += page_text + "\n"
+                        logger.debug(
+                            "Extracted text from page %d", page_num + 1
+                        )
                     except Exception as e:
-                        logger.warning(f"Could not extract text from page: {e}")
-                
+                        logger.warning(
+                            "Failed to extract text from page %d: %s",
+                            page_num + 1,
+                            e,
+                        )
+
                 if not text_content.strip():
-                    raise ExtractionError(f"No text content found in PDF: {file_path}")
-                
+                    logger.warning("No text content extracted from PDF")
+                    return ""
+
+                logger.info(
+                    "Successfully extracted text from PDF: %s", pdf_path
+                )
                 return text_content
-                
+
+        except EncryptionError:
+            raise
         except Exception as e:
-            if isinstance(e, (EncryptionError, ExtractionError)):
-                raise
-            raise ExtractionError(f"Error reading PDF {file_path}: {e}")
-    
-    def read_multiple_pdfs(self, file_patterns: List[str], password: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Reads multiple PDF files and extracts text.
-        
+            error_msg = f"Failed to read PDF {pdf_path}: {e}"
+            logger.error(error_msg)
+            raise PDFError(error_msg)
+
+    def extract_data(
+        self,
+        pdf_path: str,
+        password: Optional[str] = None,
+        fields: Optional[List[str]] = None,
+        patterns: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Extract data from PDF file.
+
         Args:
-            file_patterns (List[str]): List of file patterns (e.g., ["*.pdf", "documents/*.pdf"]).
-            password (Optional[str]): Password for encrypted PDFs.
-        
+            pdf_path: Path to PDF file
+            password: Password for encrypted PDF
+            fields: Specific fields to extract
+            patterns: Custom regex patterns
+
         Returns:
-            List[Dict[str, Any]]: List of dictionaries with file info and text content.
-        """
-        all_files: List[str] = []
-        for pattern in file_patterns:
-            files = glob.glob(pattern, recursive=True)
-            all_files.extend(files)
-        
-        if not all_files:
-            raise ExtractionError(f"No files found matching patterns: {file_patterns}")
-        
-        results: List[Dict[str, Any]] = []
-        for file_path in all_files:
-            try:
-                text_content = self.read_pdf(file_path, password)
-                results.append({
-                    "file_path": file_path,
-                    "text_content": text_content,
-                    "filename": os.path.basename(file_path)
-                })
-            except Exception as e:
-                logger.warning(f"Could not read {file_path}: {e}")
-                results.append({
-                    "file_path": file_path,
-                    "text_content": "",
-                    "filename": os.path.basename(file_path),
-                    "error": str(e)
-                })
-        
-        return results
-    
-    def extract_fields(self, text_content: str, filename: str = "") -> Dict[str, Any]:
-        """Extracts specific fields from PDF text content.
-        
-        Args:
-            text_content (str): Text content from PDF.
-            filename (str): Source filename for reference.
-        
-        Returns:
-            Dict[str, Any]: Dictionary containing extracted fields.
-        """
-        return self.extractor.extract_fields(text_content, filename)
-    
-    def extract_fields_from_multiple(self, pdf_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extracts fields from multiple PDF text contents.
-        
-        Args:
-            pdf_data (List[Dict[str, Any]]): List of dictionaries with text content and file info.
-        
-        Returns:
-            List[Dict[str, Any]]: List of dictionaries containing extracted fields.
-        """
-        text_list = [item["text_content"] for item in pdf_data]
-        filenames = [item["filename"] for item in pdf_data]
-        
-        return self.extractor.extract_multiple(text_list, filenames)
-    
-    def export_to_spreadsheet(self, data: List[Dict[str, Any]], output_file: str, 
-                            format_type: str = "excel") -> None:
-        """Exports extracted data to spreadsheet.
-        
-        Args:
-            data (List[Dict[str, Any]]): List of dictionaries containing extracted fields.
-            output_file (str): Path to output file.
-            format_type (str): Output format ("excel" or "csv").
-        
+            Dictionary of extracted data
+
         Raises:
-            ExportError: If export fails.
+            ExtractionError: If data extraction fails
         """
         try:
-            self.exporter.export(data, output_file, format_type)
+            # Read PDF text
+            text_content = self.read_pdf(pdf_path, password)
+
+            if not text_content:
+                logger.warning("No text content to extract from")
+                return {}
+
+            # Extract data using patterns
+            if patterns:
+                # Use custom patterns
+                custom_patterns = {}
+                for i, pattern in enumerate(patterns):
+                    field_name = f"custom_field_{i+1}"
+                    custom_patterns[field_name] = pattern
+
+                extracted_data = self.extractor.extract_with_custom_patterns(
+                    text_content, custom_patterns
+                )
+            else:
+                # Use default patterns
+                extracted_data = self.extractor.extract_fields(
+                    text_content, fields
+                )
+
+            # Add metadata
+            extracted_data["source_file"] = str(pdf_path)
+            extracted_data["extraction_timestamp"] = self.config.get(
+                "timestamp_format"
+            )
+
+            if self.config.get("include_raw_text"):
+                max_length = self.config.get("raw_text_max_length", 1000)
+                extracted_data["raw_text"] = text_content[:max_length]
+
+            logger.info(
+                "Successfully extracted %d fields from PDF",
+                len(extracted_data),
+            )
+            return extracted_data
+
         except Exception as e:
-            raise ExportError(f"Failed to export data: {e}")
-    
-    def process_single_pdf(self, pdf_path: str, password: Optional[str] = None, 
-                          output_file: Optional[str] = None) -> Dict[str, Any]:
-        """Processes a single PDF file end-to-end.
-        
+            error_msg = f"Failed to extract data from PDF {pdf_path}: {e}"
+            logger.error(error_msg)
+            raise ExtractionError(error_msg)
+
+    def export_data(
+        self, data: Dict[str, Any], output_path: str, format_type: str = "csv"
+    ) -> str:
+        """Export extracted data to file.
+
         Args:
-            pdf_path (str): Path to PDF file.
-            password (Optional[str]): Password for encrypted PDF.
-            output_file (Optional[str]): Optional output file path.
-        
+            data: Extracted data dictionary
+            output_path: Output file path
+            format_type: Export format ('csv', 'excel', 'json')
+
         Returns:
-            Dict[str, Any]: Dictionary containing extracted fields.
+            Path to exported file
+
+        Raises:
+            ExportError: If export fails
         """
-        text_content = self.read_pdf(pdf_path, password)
-        extracted_data = self.extract_fields(text_content, os.path.basename(pdf_path))
-        if output_file:
-            self.export_to_spreadsheet([extracted_data], output_file)
-        return extracted_data
-    
-    def process_multiple_pdfs(self, file_patterns: List[str], password: Optional[str] = None,
-                            output_file: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Processes multiple PDF files end-to-end.
-        
+        try:
+            # Convert single record to list for exporter
+            data_list = [data] if isinstance(data, dict) else data
+
+            # Validate data
+            if not self.exporter.validate_data(data_list):
+                raise ExtractionError("Invalid data format for export")
+
+            # Export data
+            exported_path = self.exporter.export_data(
+                data_list, output_path, format_type
+            )
+            logger.info("Data exported to %s: %s", format_type, exported_path)
+            return exported_path
+
+        except Exception as e:
+            error_msg = f"Failed to export data: {e}"
+            logger.error(error_msg)
+            raise ExtractionError(error_msg)
+
+    def process_pdf(
+        self,
+        pdf_path: str,
+        password: Optional[str] = None,
+        output_path: Optional[str] = None,
+        format_type: str = "csv",
+        fields: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Process PDF file: extract data and optionally export.
+
         Args:
-            file_patterns (List[str]): List of file patterns.
-            password (Optional[str]): Password for encrypted PDFs.
-            output_file (Optional[str]): Optional output file path.
-        
+            pdf_path: Path to PDF file
+            password: Password for encrypted PDF
+            output_path: Output file path (optional)
+            format_type: Export format
+            fields: Specific fields to extract
+
         Returns:
-            List[Dict[str, Any]]: List of dictionaries containing extracted fields.
+            Dictionary of extracted data
+
+        Raises:
+            PDFError: If processing fails
         """
-        pdf_data = self.read_multiple_pdfs(file_patterns, password)
-        extracted_data = self.extract_fields_from_multiple(pdf_data)
-        if output_file:
-            self.export_to_spreadsheet(extracted_data, output_file)
-        return extracted_data
-    
-    def update_patterns(self, pattern_type: str, pattern: str) -> None:
-        """Adds a custom extraction pattern.
-        
-        Args:
-            pattern_type (str): Type of pattern (name_patterns, dob_patterns, insurance_patterns).
-            pattern (str): Regex pattern to add.
-        """
-        self.config.add_pattern(pattern_type, pattern)
-        self.extractor = TextExtractor(self.config.get_patterns())
-    
-    def get_patterns(self) -> Dict[str, List[str]]:
-        """Gets current extraction patterns.
-        
+        try:
+            # Extract data
+            data = self.extract_data(pdf_path, password, fields)
+
+            # Export if output path specified
+            if output_path:
+                self.export_data(data, output_path, format_type)
+
+            return data
+
+        except Exception as e:
+            error_msg = f"Failed to process PDF {pdf_path}: {e}"
+            logger.error(error_msg)
+            raise PDFError(error_msg)
+
+    def get_supported_formats(self) -> List[str]:
+        """Get list of supported export formats.
+
         Returns:
-            Dict[str, List[str]]: Dictionary of current patterns.
+            List of supported format names
         """
-        return self.config.get_patterns() 
+        return self.exporter.get_supported_formats()
+
+    def get_available_fields(self) -> List[str]:
+        """Get list of available extraction fields.
+
+        Returns:
+            List of available field names
+        """
+        return self.extractor.get_available_fields()

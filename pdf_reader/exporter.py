@@ -1,17 +1,9 @@
-"""
-Data export utilities for PDF extracted data.
+"""Data export functionality for PDF Reader package."""
 
-This module provides functionality to export extracted PDF data to various formats
-including Excel spreadsheets and CSV files.
-"""
-
+import csv
 import logging
-import os
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
-
-import pandas as pd
+from typing import Any, Dict, List, Optional
 
 from .exceptions import ExportError
 
@@ -19,256 +11,224 @@ logger = logging.getLogger(__name__)
 
 
 class DataExporter:
-    """
-    A class for exporting extracted PDF data to various formats.
-    
-    This class provides methods to export structured data extracted from PDFs
-    to Excel spreadsheets and CSV files with proper formatting and organization.
-    
-    Attributes:
-        output_dir (Path): Directory where exported files will be saved
-        timestamp_format (str): Format string for timestamps in filenames
-    """
-    
-    def __init__(self, output_dir: Optional[Union[str, Path]] = None):
-        """
-        Initialize the DataExporter with output directory.
-        
+    """Export extracted data to various formats."""
+
+    def __init__(self, output_directory: Optional[str] = None):
+        """Initialize data exporter.
+
         Args:
-            output_dir: Directory where exported files will be saved.
-                       If None, uses current working directory
+            output_directory: Directory to save exported files
         """
-        self.output_dir = Path(output_dir) if output_dir else Path.cwd()
-        self.timestamp_format = "%Y%m%d_%H%M%S"
-        
-        # Ensure output directory exists
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("DataExporter initialized with output directory: %s", self.output_dir)
-    
-    def export_to_excel(self, data: List[Dict], filename: Optional[str] = None) -> str:
-        """
-        Export extracted data to an Excel spreadsheet.
-        
+        self.output_directory = (
+            Path(output_directory) if output_directory else Path.cwd()
+        )
+        self.output_directory.mkdir(parents=True, exist_ok=True)
+
+    def export_to_csv(
+        self, data: List[Dict[str, Any]], filename: Optional[str] = None
+    ) -> str:
+        """Export data to CSV format.
+
         Args:
             data: List of dictionaries containing extracted data
-            filename: Optional filename for the Excel file.
-                     If None, generates a timestamped filename
-                     
+            filename: Output filename (optional)
+
         Returns:
-            Path to the created Excel file
-            
+            Path to exported CSV file
+
         Raises:
-            ExportError: If data is invalid or export fails
+            ExportError: If export fails
         """
         if not data:
-            error_msg = "Cannot export empty data list"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
-            error_msg = "Data must be a list of dictionaries"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        # Generate filename if not provided
-        if not filename:
-            timestamp = datetime.now().strftime(self.timestamp_format)
-            filename = f"pdf_extracted_data_{timestamp}.xlsx"
-        
-        # Ensure filename has .xlsx extension
-        if not filename.endswith('.xlsx'):
-            filename += '.xlsx'
-        
-        filepath = self.output_dir / filename
-        
+            raise ExportError("No data to export")
+
+        if filename is None:
+            filename = "extracted_data.csv"
+        elif not filename.endswith(".csv"):
+            filename += ".csv"
+
+        file_path = self.output_directory / filename
+
         try:
-            logger.info("Exporting %d records to Excel file: %s", len(data), filepath)
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(data)
-            
-            # Add metadata
-            metadata = {
-                'Export Date': datetime.now().isoformat(),
-                'Total Records': len(data),
-                'Source': 'PDF Reader Package'
-            }
-            
-            # Create Excel writer with formatting
-            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
-                # Write main data
-                df.to_excel(writer, sheet_name='Extracted Data', index=False)
-                
-                # Write metadata
-                metadata_df = pd.DataFrame([metadata])
-                metadata_df.to_excel(writer, sheet_name='Metadata', index=False)
-                
-                # Get workbook and worksheet for formatting
-                workbook = writer.book
-                worksheet = writer.sheets['Extracted Data']
-                
-                # Auto-adjust column widths
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    
-                    adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
-            
-            logger.info("Successfully exported data to Excel file: %s", filepath)
-            return str(filepath)
-            
+            with open(file_path, "w", newline="", encoding="utf-8") as csvfile:
+                if not data:
+                    return str(file_path)
+
+                fieldnames = list(data[0].keys())
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(data)
+
+            logger.info("Data exported to CSV: %s", file_path)
+            return str(file_path)
+
         except Exception as e:
-            error_msg = f"Failed to export data to Excel: {e}"
+            error_msg = f"Failed to export to CSV: {e}"
             logger.error(error_msg)
-            raise ExportError(error_msg) from e
-    
-    def export_to_csv(self, data: List[Dict], filename: Optional[str] = None) -> str:
-        """
-        Export extracted data to a CSV file.
-        
+            raise ExportError(
+                error_msg, format_type="csv", file_path=str(file_path)
+            )
+
+    def export_to_excel(
+        self, data: List[Dict[str, Any]], filename: Optional[str] = None
+    ) -> str:
+        """Export data to Excel format.
+
         Args:
             data: List of dictionaries containing extracted data
-            filename: Optional filename for the CSV file.
-                     If None, generates a timestamped filename
-                     
+            filename: Output filename (optional)
+
         Returns:
-            Path to the created CSV file
-            
+            Path to exported Excel file
+
         Raises:
-            ExportError: If data is invalid or export fails
+            ExportError: If export fails
         """
         if not data:
-            error_msg = "Cannot export empty data list"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
-            error_msg = "Data must be a list of dictionaries"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        # Generate filename if not provided
-        if not filename:
-            timestamp = datetime.now().strftime(self.timestamp_format)
-            filename = f"pdf_extracted_data_{timestamp}.csv"
-        
-        # Ensure filename has .csv extension
-        if not filename.endswith('.csv'):
-            filename += '.csv'
-        
-        filepath = self.output_dir / filename
-        
+            raise ExportError("No data to export")
+
         try:
-            logger.info("Exporting %d records to CSV file: %s", len(data), filepath)
-            
-            # Convert to DataFrame and export
-            df = pd.DataFrame(data)
-            df.to_csv(filepath, index=False, encoding='utf-8')
-            
-            logger.info("Successfully exported data to CSV file: %s", filepath)
-            return str(filepath)
-            
+            from openpyxl import Workbook
+        except ImportError:
+            raise ExportError(
+                "openpyxl is required for Excel export. \
+                Install with: pip install openpyxl"
+            )
+
+        if filename is None:
+            filename = "extracted_data.xlsx"
+        elif not filename.endswith(".xlsx"):
+            filename += ".xlsx"
+
+        file_path = self.output_directory / filename
+
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Extracted Data"
+
+            if data:
+                # Write headers
+                headers = list(data[0].keys())
+                for col, header in enumerate(headers, 1):
+                    ws.cell(row=1, column=col, value=header)
+
+                # Write data
+                for row, record in enumerate(data, 2):
+                    for col, header in enumerate(headers, 1):
+                        value = record.get(header, "")
+                        ws.cell(row=row, column=col, value=value)
+
+            wb.save(file_path)
+            logger.info("Data exported to Excel: %s", file_path)
+            return str(file_path)
+
         except Exception as e:
-            error_msg = f"Failed to export data to CSV: {e}"
+            error_msg = f"Failed to export to Excel: {e}"
             logger.error(error_msg)
-            raise ExportError(error_msg) from e
-    
-    def export_multiple_formats(self, data: List[Dict], base_filename: Optional[str] = None) -> Dict[str, str]:
-        """
-        Export data to multiple formats (Excel and CSV).
-        
+            raise ExportError(
+                error_msg, format_type="excel", file_path=str(file_path)
+            )
+
+    def export_to_json(
+        self, data: List[Dict[str, Any]], filename: Optional[str] = None
+    ) -> str:
+        """Export data to JSON format.
+
         Args:
             data: List of dictionaries containing extracted data
-            base_filename: Optional base filename (without extension).
-                          If None, generates a timestamped filename
-                          
+            filename: Output filename (optional)
+
         Returns:
-            Dictionary mapping format names to file paths
-            
+            Path to exported JSON file
+
         Raises:
-            ExportError: If data is invalid or export fails
+            ExportError: If export fails
         """
         if not data:
-            error_msg = "Cannot export empty data list"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        # Generate base filename if not provided
-        if not base_filename:
-            timestamp = datetime.now().strftime(self.timestamp_format)
-            base_filename = f"pdf_extracted_data_{timestamp}"
-        
-        results = {}
-        
+            raise ExportError("No data to export")
+
+        if filename is None:
+            filename = "extracted_data.json"
+        elif not filename.endswith(".json"):
+            filename += ".json"
+
+        file_path = self.output_directory / filename
+
         try:
-            # Export to Excel
-            excel_filename = f"{base_filename}.xlsx"
-            results['excel'] = self.export_to_excel(data, excel_filename)
-            
-            # Export to CSV
-            csv_filename = f"{base_filename}.csv"
-            results['csv'] = self.export_to_csv(data, csv_filename)
-            
-            logger.info("Successfully exported data to multiple formats: %s", list(results.keys()))
-            return results
-            
+            import json
+
+            with open(file_path, "w", encoding="utf-8") as jsonfile:
+                json.dump(data, jsonfile, indent=2, ensure_ascii=False)
+
+            logger.info("Data exported to JSON: %s", file_path)
+            return str(file_path)
+
         except Exception as e:
-            error_msg = f"Failed to export data to multiple formats: {e}"
+            error_msg = f"Failed to export to JSON: {e}"
             logger.error(error_msg)
-            raise ExportError(error_msg) from e
-    
-    def get_export_summary(self, data: List[Dict]) -> Dict:
-        """
-        Generate a summary of the data to be exported.
-        
+            raise ExportError(
+                error_msg, format_type="json", file_path=str(file_path)
+            )
+
+    def export_data(
+        self,
+        data: List[Dict[str, Any]],
+        output_path: str,
+        format_type: str = "csv",
+    ) -> str:
+        """Export data to specified format.
+
         Args:
             data: List of dictionaries containing extracted data
-            
+            output_path: Output file path
+            format_type: Export format ('csv', 'excel', 'json')
+
         Returns:
-            Dictionary containing summary information
-            
+            Path to exported file
+
         Raises:
-            ExportError: If data is invalid
+            ExportError: If export fails or format is unsupported
         """
-        if not data:
-            error_msg = "Cannot generate summary for empty data"
-            logger.error(error_msg)
-            raise ExportError(error_msg)
-        
-        try:
-            df = pd.DataFrame(data)
-            
-            summary = {
-                'total_records': len(data),
-                'fields': list(df.columns),
-                'field_count': len(df.columns),
-                'non_null_counts': df.count().to_dict(),
-                'export_timestamp': datetime.now().isoformat()
-            }
-            
-            logger.debug("Generated export summary: %s", summary)
-            return summary
-            
-        except Exception as e:
-            error_msg = f"Failed to generate export summary: {e}"
-            logger.error(error_msg)
-            raise ExportError(error_msg) from e
-    
-    def set_output_directory(self, output_dir: Union[str, Path]) -> None:
+        format_type = format_type.lower()
+
+        if format_type == "csv":
+            return self.export_to_csv(data, output_path)
+        elif format_type == "excel":
+            return self.export_to_excel(data, output_path)
+        elif format_type == "json":
+            return self.export_to_json(data, output_path)
+        else:
+            raise ExportError(f"Unsupported export format: {format_type}")
+
+    def get_supported_formats(self) -> List[str]:
+        """Get list of supported export formats.
+
+        Returns:
+            List of supported format names
         """
-        Set a new output directory for exports.
-        
+        return ["csv", "excel", "json"]
+
+    def validate_data(self, data: List[Dict[str, Any]]) -> bool:
+        """Validate data before export.
+
         Args:
-            output_dir: New directory path for exports
+            data: Data to validate
+
+        Returns:
+            True if data is valid for export
         """
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Output directory changed to: %s", self.output_dir) 
+        if not isinstance(data, list):
+            logger.error("Data must be a list of dictionaries")
+            return False
+
+        if not data:
+            logger.warning("No data to export")
+            return False
+
+        for i, record in enumerate(data):
+            if not isinstance(record, dict):
+                logger.error("Record %d is not a dictionary", i)
+                return False
+
+        return True
