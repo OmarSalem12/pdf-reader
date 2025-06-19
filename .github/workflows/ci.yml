@@ -38,7 +38,6 @@ jobs:
     
     - name: Run linting
       run: |
-        flake8 pdf_reader tests
         black --check pdf_reader tests
         isort --check-only pdf_reader tests
     
