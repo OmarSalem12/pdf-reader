@@ -31,7 +31,7 @@ pip install pdf-reader
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/pdf-reader.git
+git clone https://github.com/OmarSalem12/pdf-reader.git
 cd pdf-reader
 pip install -e .
 ```
@@ -39,7 +39,7 @@ pip install -e .
 ### Development Installation
 
 ```bash
-git clone https://github.com/yourusername/pdf-reader.git
+git clone https://github.com/OmarSalem12/pdf-reader.git
 cd pdf-reader
 pip install -e .[dev]
 ```
